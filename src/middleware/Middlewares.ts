@@ -36,7 +36,7 @@ class Middlewares {
     public checkHeaders(req: Request, res: Response, next: NextFunction) {
         const contentType = req.headers['content-type'];
         
-        if (['POST', 'PUT', 'DELETE'].includes(req.method) && (!contentType || contentType !== 'application/json')) {
+        if (['POST', 'PUT'].includes(req.method) && (!contentType || contentType !== 'application/json')) {
             this.logger.warn('Missing or incorrect Content-Type');
             return res.status(400).json({ error: "Bad request: Missing or incorrect Content-Type" });
         }

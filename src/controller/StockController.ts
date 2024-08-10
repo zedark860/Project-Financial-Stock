@@ -1,33 +1,42 @@
 import MySQLService from "../config/MySQLService";
 import TypeLogs from "../log/TypeLogs";
-import ValidatorsStockController from "../../validators/ValidatorsStockController";
-import { EstoqueFinanceiroMes, EstoqueFinanceiroTotal } from "../model/StockModel";
+import ValidatorsStockController from "../validators/ValidatorsStockController";
+import { EstoqueFinanceiroMes, EstoqueFinanceiroTotal } from "../model/StockData";
+import { Tables, comandsTables } from "../model/StockTables";
 
 class StockController extends ValidatorsStockController {
 
     private database: MySQLService;
+    private tables: Tables;
 
     constructor(logger: TypeLogs) {
         super(logger);
         this.database = new MySQLService();
+        this.tables = comandsTables;
+    }
+
+    private getTables(): Tables {
+        return this.tables;
     }
 
     private getDataBase(): MySQLService {
         return this.database;
     }
 
-    public async allItens(nameTable: string): Promise<EstoqueFinanceiroMes[] | EstoqueFinanceiroTotal[]> {
+    public async allItens(nameTable: keyof Tables): Promise<EstoqueFinanceiroMes[] | EstoqueFinanceiroTotal[]> {
         let sqlAll: string;
         let result: EstoqueFinanceiroMes[] | EstoqueFinanceiroTotal[];
 
         try {
-            this.database.beginTransaction();
+            this.getDataBase().beginTransaction();
 
-            if (nameTable === "estoquefinanceiro_mes") {
-                sqlAll = `SELECT * FROM estoquefinanceiro_mes ORDER BY id_mes DESC;`;
-            } else {
-                sqlAll = `SELECT * FROM estoquefinanceiro_total ORDER BY id_total DESC;`;
+            const table = this.getTables()[nameTable];
+
+            if (!table) {
+                throw new Error("Table not found");
             }
+
+            sqlAll = table.sqlAll;
 
             result = await this.getDataBase().query(sqlAll);
 
@@ -36,8 +45,6 @@ class StockController extends ValidatorsStockController {
             this.getLogger().error((error as Error).message);
             await this.getDataBase().rollback();
             throw error;
-        } finally {
-            this.getDataBase().close();
         }
     }
 
@@ -48,30 +55,53 @@ class StockController extends ValidatorsStockController {
             this.getLogger().error((error as Error).message);
             await this.getDataBase().rollback();
             throw error;
-        } finally {
-            this.getDataBase().close();
         }
     }
 
-    public async addItem(dataItens: object, nameTable: string): Promise<void> {
+    public async getTotalIdForQuery(nameTable: keyof Tables, product: string): Promise<number> {
+        const sqlAux = this.getTables()[nameTable].sqlAuxId;
+
         try {
+            const result = await this.getDataBase().query(sqlAux, [product]);
+            if (result.length > 0) {
+                return result[0].id_total;
+            } else {
+                throw new Error('Product not found');
+            }
+        } catch (error) {
+            this.getLogger().error((error as Error).message);
+            throw error;
+        }
+    }
 
-            const dataItensValidated = this.validateDataAdd(dataItens);
+    public async addItem(dataItens: EstoqueFinanceiroMes | EstoqueFinanceiroTotal, nameTable: keyof Tables): Promise<void> {
+        let sqlInsert: string;
 
+        const dataItensValidated: object = this.validateDataAdd(dataItens);
 
+        try {
+            await this.database.beginTransaction();
+
+            if (this.getTables()[nameTable] === this.getTables().estoquefinanceiro_mes) {
+                const idForeignKey = await this.getTotalIdForQuery(nameTable, dataItensValidated.produto);
+                sqlInsert = this.getTables().estoquefinanceiro_mes.sqlInsert; // Get the correct SQL for insert
+                await this.getDataBase().query(sqlInsert, [idForeignKey, dataItensValidated.datamodificacao, dataItensValidated.produto, dataItensValidated.quantidade, dataItensValidated.destino, dataItensValidated.responsavel, dataItensValidated.observacoes]);
+            } else {
+                sqlInsert = this.getTables()[nameTable].sqlInsert; // Get the correct SQL for insert
+                await this.getDataBase().query(sqlInsert, [dataItensValidated.datamodificacao, dataItensValidated.unidade, dataItensValidated.vencimento, dataItensValidated.entrada, dataItensValidated.saida, dataItensValidated.saldo, dataItensValidated.setor]);
+            }
             
+            await this.getDataBase().commit();
+
         } catch (error) {
             this.getLogger().error((error as Error).message);
             await this.getDataBase().rollback();
             throw error;
-        } finally {
-            this.getDataBase().close();
         }
     }
 
-    public async update(dataItens: EstoqueFinanceiroMes | EstoqueFinanceiroTotal, nameTable: string): Promise<void> {
+    public async update(dataItens: EstoqueFinanceiroMes | EstoqueFinanceiroTotal, nameTable: keyof Tables): Promise<void> {
         let sqlUpdate: string;
-        let id: number;
 
         const dataItensValidated = this.validateDataUpdate(dataItens);
 
@@ -80,13 +110,13 @@ class StockController extends ValidatorsStockController {
 
             await this.validateId(nameTable, dataItens.id, this.getDataBase());
 
-            if (nameTable === "estoquefinanceiro_mes") {
-                id = (dataItens as EstoqueFinanceiroMes).id; 
-                sqlUpdate = `UPDATE estoquefinanceiro_mes SET ? WHERE id_mes = ?;`;
-            } else {
-                id = (dataItens as EstoqueFinanceiroTotal).id;
-                sqlUpdate = `UPDATE estoquefinanceiro_total SET ? WHERE id_total = ?;`;
+            const table = this.getTables()[nameTable];
+
+            if (!table) {
+                throw new Error("Table not found");
             }
+
+            sqlUpdate = table.sqlUpdate;
 
             await this.getDataBase().query(sqlUpdate, [dataItensValidated, dataItens.id]);
             
@@ -95,12 +125,10 @@ class StockController extends ValidatorsStockController {
             this.getLogger().error((error as Error).message);
             await this.getDataBase().rollback();
             throw error;
-        } finally {
-            this.getDataBase().close();
         }
     }
 
-    public async deleteItem(nameTable: string, id: number): Promise<void> {
+    public async deleteItem(nameTable: keyof Tables, id: number): Promise<void> {
         let sqlDelete: string;
 
         try {
@@ -108,11 +136,13 @@ class StockController extends ValidatorsStockController {
 
             await this.validateId(nameTable, id, this.getDataBase());
 
-            if (nameTable === "estoquefinanceiro_mes") {
-                sqlDelete = `DELETE FROM estoquefinanceiro_mes WHERE id_mes = ?;`;
-            } else {
-                sqlDelete = `DELETE FROM estoquefinanceiro_total WHERE id_total = ?;`;
+            const table = this.getTables()[nameTable];
+
+            if (!table) {
+                throw new Error("Table not found");
             }
+
+            sqlDelete = table.sqlDelete;
 
             await this.getDataBase().query(sqlDelete, [id]);
 
@@ -121,8 +151,6 @@ class StockController extends ValidatorsStockController {
             this.getLogger().error((error as Error).message);
             await this.getDataBase().rollback();
             throw error;
-        } finally {
-            this.getDataBase().close();
         }
     }
 

@@ -1,17 +1,26 @@
 import express, { Request, Response } from 'express';
 import TypeLogs from "../log/TypeLogs";
 import StockController from '../controller/StockController';
+import { comandsTables as tables } from '../model/StockTables'; // Importando as tabelas configuradas
 
 const router = express.Router();
 const stockController = new StockController(new TypeLogs());
 let message: string;
 
+function isValidTable(nameTable: string): nameTable is keyof typeof tables {
+    return nameTable in tables;
+}
+
 router.get('/all/:nameTable', async (req: Request, res: Response) => {
     const { nameTable } = req.params;
     let userIP = req.ip === "::1" ? "127.0.0.1" : req.ip;
-    message = "All itens retrieved";
+    message = "All items retrieved";
 
     try {
+        if (!isValidTable(nameTable)) {
+            throw new Error(`Invalid table name: ${nameTable}`);
+        }
+
         const result = await stockController.allItens(nameTable);
 
         stockController.getLogger().info(message, userIP);
@@ -23,15 +32,17 @@ router.get('/all/:nameTable', async (req: Request, res: Response) => {
     }
 });
 
-
-router.post('/add/:nameTable', (req: Request, res: Response) => {
+router.post('/add/:nameTable', async (req: Request, res: Response) => {
     const { nameTable } = req.params;
     let userIP = req.ip === "::1" ? "127.0.0.1" : req.ip;
     message = "Add successful";
 
     try {
-        const data = stockController;
+        if (!isValidTable(nameTable)) {
+            throw new Error(`Invalid table name: ${nameTable}`);
+        }
 
+        await stockController.addItem(req.body, nameTable);
 
         stockController.getLogger().info(message, userIP);
 
@@ -42,13 +53,16 @@ router.post('/add/:nameTable', (req: Request, res: Response) => {
     }
 });
 
-
 router.put('/update/:nameTable/:idProduct', async (req: Request, res: Response) => {
     const { nameTable, idProduct } = req.params;
     let userIP = req.ip === "::1" ? "127.0.0.1" : req.ip;
     message = "Update successful";
 
     try {
+        if (!isValidTable(nameTable)) {
+            throw new Error(`Invalid table name: ${nameTable}`);
+        }
+
         const data = stockController.validateTableData(nameTable, idProduct, req.body);
 
         await stockController.update(data, nameTable);
@@ -62,17 +76,20 @@ router.put('/update/:nameTable/:idProduct', async (req: Request, res: Response) 
     }
 });
 
-
 router.delete('/delete/:nameTable/:idProduct', async (req: Request, res: Response) => {
     const { nameTable, idProduct } = req.params;
     let userIP = req.ip === "::1" ? "127.0.0.1" : req.ip;
     message = "Delete successful";
 
     try {
+        if (!isValidTable(nameTable)) {
+            throw new Error(`Invalid table name: ${nameTable}`);
+        }
+
         await stockController.deleteItem(nameTable, parseInt(idProduct, 10));
-        
+
         stockController.getLogger().warn(message, userIP);
-        
+
         res.status(200).send({ messageStatus: message });
     } catch (error) {
         stockController.getLogger().error((error as Error).message, userIP);
