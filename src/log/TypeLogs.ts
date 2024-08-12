@@ -21,6 +21,7 @@ class TypeLogs {
         });
     }
 
+    // Lógica para salvar arquivos de logs
     public saveLog(name: string, message: string, ip?: string, stack?: string) {
         const dateTimeCurrent = new Date().toISOString().replace(/[:.]/g, "-");
         const pathLogs = path.join(__dirname, "Arquives");
@@ -36,12 +37,14 @@ class TypeLogs {
         fs.writeFileSync(filePath, `${fullLogMessage}\n`);
     }
 
+    // Log para informações
     public info(message: unknown, ip?: string) {
         const logMessage = String(message);
         this.logger.info({ ip: ip, machine: this.machineName }, logMessage);
         this.saveLog("info", logMessage, ip);
     }
 
+    // Log para erros
     public error(message: unknown, ip?: string) {
         const logMessage = String(message);
         const stack = message instanceof Error ? message.stack : undefined;
@@ -49,12 +52,14 @@ class TypeLogs {
         this.saveLog("error", logMessage, ip, stack);
     }
 
+    // Log para alertas
     public warn(message: unknown, ip?: string) {
         const logMessage = String(message);
         this.logger.warn({ ip: ip, machine: this.machineName }, logMessage);
         this.saveLog("warn", logMessage, ip);
     }
 
+    // Log para debug
     public debug(message: unknown, ip?: string) {
         const logMessage = String(message);
         this.logger.debug({ ip: ip, machine: this.machineName }, logMessage);

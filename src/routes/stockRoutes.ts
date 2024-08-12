@@ -63,9 +63,7 @@ router.put('/update/:nameTable/:idProduct', async (req: Request, res: Response) 
             throw new Error(`Invalid table name: ${nameTable}`);
         }
 
-        const data = stockController.validateTableData(nameTable, idProduct, req.body);
-
-        await stockController.update(data, nameTable);
+        await stockController.updateItem(req.body, nameTable, parseInt(idProduct, 10));
 
         stockController.getLogger().warn(message, userIP);
 

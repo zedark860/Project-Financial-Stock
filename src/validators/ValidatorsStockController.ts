@@ -1,116 +1,63 @@
 import MySQLService from "../config/MySQLService";
 import TypeLogs from "../log/TypeLogs";
-import { EstoqueFinanceiroMes, EstoqueFinanceiroTotal } from "../model/StockData";
 import { Tables, comandsTables } from "../model/StockTables";
 
+// Classe base para validação de dados de estoque
 class ValidatorsStockController {
 
+    // Logger para registrar mensagens e erros
     protected logger: TypeLogs;
+    // Propriedade para armazenar as tabelas e suas respectivas validações
     private tablesValidate: Tables;
 
+    // Construtor da classe, inicializa o logger e as tabelas de validação
     constructor(logger: TypeLogs) {
-        this.logger = logger;
-        this.tablesValidate = comandsTables;
+        this.logger = logger; // Inicializa o logger
+        this.tablesValidate = comandsTables; // Configura as tabelas de validação
     }
 
-
+    // Retorna a instância do logger
     public getLogger(): TypeLogs {
         return this.logger;
     }
 
+    // Valida os dados de adição, substituindo valores nulos ou indefinidos por null
     public validateDataAdd(data: object): object {
         try {
+            // Percorre todas as entradas do objeto de dados
             for (const [key, value] of Object.entries(data)) {
+                // Substitui valores nulos, indefinidos ou vazios por null
                 if (value === null || value === undefined || value === "") {
                     (data as any)[key] = null;
                 }
             }
     
-            return data;
+            return data; // Retorna os dados validados
         } catch (error) {
-            this.logger.error((error as Error).message);
-            throw error;
+            this.logger.error((error as Error).message); // Registra o erro no log
+            throw error; // Lança o erro para que possa ser tratado pela chamada da função
         }
     }
 
-    public validateDataUpdate(data: object): object | void {
-        try {
-            for (const [key, value] of Object.entries(data)) {
-                if (key === "vencimento_total") {
-                    return data;
-                }
-                if (value === null || value === undefined || value === "") {
-                    throw new Error("Invalid data item: " + key);
-                } 
-                
-            }
-        } catch (error) {
-            this.logger.error((error as Error).message);
-            throw error;
-        }
-    }
-
+    // Valida a existência de um ID na tabela especificada
     public async validateId(nameTable: keyof Tables, id: number, database: MySQLService): Promise<void> {
         let sqlCheck: string;
 
-        const table = this.tablesValidate[nameTable];
+        const table = this.tablesValidate[nameTable]; // Obtém a tabela de validação correspondente ao nome da tabela
 
+        // Verifica se a tabela existe
         if (!table) {
             throw new Error("Table not found");
         }
 
-        sqlCheck = table.sqlCheck;
+        sqlCheck = table.sqlCheck; // Obtém a SQL para verificar a existência do ID
 
-        const result = await database.query(sqlCheck, [id]);
+        const result = await database.query(sqlCheck, [id]); // Executa a consulta para verificar a existência do ID
 
+        // Verifica se o resultado contém o ID
         if (!result[0]) {
-            throw new Error(`ID ${id} not found in ${nameTable}`);
+            throw new Error(`ID ${id} not found in ${nameTable}`); // Lança um erro se o ID não for encontrado
         }
-    }
-
-    public validateTableData(nameTable: keyof Tables, idProduct: string, body: any): EstoqueFinanceiroMes | EstoqueFinanceiroTotal {
-        try {
-            let data: EstoqueFinanceiroMes | EstoqueFinanceiroTotal;
-            const currentDate = new Date().toISOString().split('T')[0];
-        
-            if (this.tablesValidate[nameTable] === this.tablesValidate.estoquefinanceiro_mes) {
-                const { id_total, produto, movimentos_mes, quantidade_mes, destino_origem_mes, responsavel_mes, observacoes_mes } = body;
-        
-                data = {
-                    id: parseInt(idProduct, 10),
-                    id_total,
-                    datamodificacao: currentDate,
-                    produto,
-                    movimentos_mes,
-                    quantidade_mes,
-                    destino_origem_mes,
-                    responsavel_mes,
-                    observacoes_mes
-                } as EstoqueFinanceiroMes;
-        
-            } else {
-                const { produto, unidade_total, vencimento_total, entrada_total, saida_total, saldo_total, setor_total } = body;
-        
-                data = {
-                    id: parseInt(idProduct, 10),
-                    datamodificacao: currentDate,
-                    produto,
-                    unidade_total,
-                    vencimento_total,
-                    entrada_total,
-                    saida_total,
-                    saldo_total,
-                    setor_total
-                } as EstoqueFinanceiroTotal;
-                
-            }
-
-            return data;
-        } catch (error) {
-            this.logger.error((error as Error).message);
-            throw error;
-        }
-
     }
 
 }

@@ -1,23 +1,23 @@
 export interface EstoqueFinanceiroBase {
     id: number;
-    datamodificacao: string;
+    data_modificacao: string;
     produto: string;
 }
 
 export interface EstoqueFinanceiroMes extends EstoqueFinanceiroBase {
     id_total: number;
-    movimentos_mes: string;
-    quantidade_mes: number;
-    destino_origem_mes: string;
-    responsavel_mes: string;
-    observacoes_mes: string;
+    movimento: string;
+    quantidade: number;
+    destino_origem: string;
+    responsavel: string;
+    observacao: string;
 }
 
 export interface EstoqueFinanceiroTotal extends EstoqueFinanceiroBase {
-    unidade_total: string;
-    vencimento_total: Date;
-    entrada_total: number;
-    saida_total: number;
-    saldo_total: number;
-    setor_total: string;
+    unidade: string;
+    vencimento: Date;
+    entrada: number;
+    saida: number;
+    saldo: number;
+    setor: string;
 }

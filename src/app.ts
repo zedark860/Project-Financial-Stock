@@ -29,7 +29,7 @@ class App {
   }
 
   private routes(): void {
-    this.app.use("/", stockRoutes);
+    this.app.use("/estoque", stockRoutes);
   }
 
   public start(): void {

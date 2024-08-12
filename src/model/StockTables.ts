@@ -14,23 +14,29 @@ export interface Tables {
 
 export const comandsTables: Tables = {
     estoquefinanceiro_mes: {
-        sqlAll: `SELECT * FROM estoquefinanceiro_mes ORDER BY id_mes DESC;`,
-        sqlAuxId: `SELECT id_total FROM estoquefinanceiro_total WHERE produto_total = ?;`,
+        sqlAll: `SELECT * FROM estoquefinanceiro_mes ORDER BY id DESC;`,
+        sqlAuxId: `SELECT id FROM estoquefinanceiro_total WHERE produto = ?;`,
         sqlInsert: `
-            INSERT INTO estoquefinanceiro_mes (id_total, datamodificacao_mes, produto_mes, quantidade_mes, destino_origem_mes, responsavel_mes, observacoes_mes) 
-            VALUES (?, ?, ?, ?, ?, ?, ?);`,
-        sqlUpdate: `UPDATE estoquefinanceiro_mes SET ? WHERE id_mes = ?;`,
-        sqlDelete: `DELETE FROM estoquefinanceiro_mes WHERE id_mes = ?;`,
-        sqlCheck: `SELECT 1 FROM estoquefinanceiro_mes WHERE id_mes = ?`,
+            INSERT INTO estoquefinanceiro_mes (id_total, data_modificacao, produto, movimento, quantidade, destino_origem, responsavel, observacao) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+        sqlUpdate: `                
+            UPDATE estoquefinanceiro_mes 
+            SET ? 
+            WHERE id = ?;`,
+        sqlDelete: `DELETE FROM estoquefinanceiro_mes WHERE id = ?;`,
+        sqlCheck: `SELECT 1 FROM estoquefinanceiro_mes WHERE id = ?`,
     },
     estoquefinanceiro_total: {
-        sqlAll: `SELECT * FROM estoquefinanceiro_total ORDER BY id_total DESC;`,
+        sqlAll: `SELECT * FROM estoquefinanceiro_total ORDER BY id DESC;`,
         sqlAuxId: ``,
         sqlInsert: `
-            INSERT INTO estoquefinanceiro_total (datamodificacao_total, unidade_total, vencimento_total, entrada_total, saida_total, saldo_total, setor_total) 
-            VALUES (?, ?, ?, ?, ?, ?, ?);`,
-        sqlUpdate: `UPDATE estoquefinanceiro_total SET ? WHERE id_total = ?;`,
-        sqlDelete: `DELETE FROM estoquefinanceiro_total WHERE id_total = ?;`,
-        sqlCheck: `SELECT 1 FROM estoquefinanceiro_total WHERE id_total = ?`,
+            INSERT INTO estoquefinanceiro_total (data_modificacao, produto, unidade, vencimento, entrada, saida, saldo, setor) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+        sqlUpdate: `
+            UPDATE estoquefinanceiro_total 
+            SET ?
+            WHERE id = ?;`,
+        sqlDelete: `DELETE FROM estoquefinanceiro_total WHERE id = ?;`,
+        sqlCheck: `SELECT 1 FROM estoquefinanceiro_total WHERE id = ?`,
     }
 };
