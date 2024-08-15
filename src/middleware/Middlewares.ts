@@ -15,11 +15,15 @@ class Middlewares {
     // Configura as opções de CORS (Cross-Origin Resource Sharing)
     public corsOptions(): object {
         return {
-            origin: '*', // Origem permitida
-            methods: 'GET,PUT,POST,DELETE', // Métodos HTTP permitidos
-            preflightContinue: false, // Não continua a verificação do preflight
-            optionsSuccessStatus: 204 // Status HTTP para resposta de preflight bem-sucedida
-        }
+            origin: '*', // Permitir somente esta origem específica
+            methods: ['GET', 'POST', 'PUT', 'DELETE'], // Permitir esses métodos HTTP
+            allowedHeaders: ['Content-Type', 'Authorization'], // Cabeçalhos permitidos
+            exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'], // Cabeçalhos que podem ser expostos ao cliente
+            credentials: true, // Habilitar suporte a cookies e autenticação
+            maxAge: 84600, // Tempo de cache do preflight
+            preflightContinue: false, // Não continuar com a verificação do preflight
+            optionsSuccessStatus: 204 // Código de sucesso para preflight
+          }
     }
 
     // Middleware para lidar com erros de JSON (por exemplo, erros de sintaxe)
