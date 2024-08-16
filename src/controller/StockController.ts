@@ -53,6 +53,8 @@ class StockController extends ValidatorsStockController {
 
             result = await this.getDataBase().query(sqlAll); // Executa a consulta SQL e armazena o resultado
 
+            await this.getDataBase().commit(); // Confirma a transação
+
             return result; // Retorna o resultado da consulta
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log

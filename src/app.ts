@@ -21,9 +21,7 @@ class App {
   }
 
   private middlewareSetup(): void {
-    this.app.use((req: Request, res: Response, next: NextFunction) => {
-      next();
-    }, cors(this.getMiddlewares().corsOptions()));
+    this.app.use(cors(this.getMiddlewares().corsOptions()));
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(this.getMiddlewares().jsonError.bind(this.getMiddlewares()));
