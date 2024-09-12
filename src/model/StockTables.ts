@@ -1,8 +1,10 @@
 export interface SQLCommands {
     sqlAll: string;
-    sqlAuxId: string;
+    sqlAuxId?: string;
     sqlInsert: string;
     sqlUpdate: string;
+    sqlUpdateTotalBalanceEntrada?: string;
+    sqlUpdateTotalBalanceSaida?: string;
     sqlDelete: string;
     sqlCheck: string;
 }
@@ -23,12 +25,23 @@ export const comandsTables: Tables = {
             UPDATE estoquefinanceiro_mes 
             SET ? 
             WHERE id = ?;`,
+        sqlUpdateTotalBalanceEntrada: `
+            UPDATE estoquefinanceiro_total
+            SET entrada = entrada + ?, 
+                saldo = saldo + ?,
+                data_modificacao = ?
+            WHERE id = ?;`,
+        sqlUpdateTotalBalanceSaida: `
+            UPDATE estoquefinanceiro_total
+            SET saida = saida + ?, 
+                saldo = saldo - ?,
+                data_modificacao = ?
+            WHERE id = ?;`,
         sqlDelete: `DELETE FROM estoquefinanceiro_mes WHERE id = ?;`,
         sqlCheck: `SELECT 1 FROM estoquefinanceiro_mes WHERE id = ?`,
     },
     estoquefinanceiro_total: {
         sqlAll: `SELECT * FROM estoquefinanceiro_total ORDER BY id DESC;`,
-        sqlAuxId: ``,
         sqlInsert: `
             INSERT INTO estoquefinanceiro_total (data_modificacao, produto, unidade, vencimento, entrada, saida, saldo, setor) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,

@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+import 'dotenv/config';
+import rateLimit from 'express-rate-limit';
 import TypeLogs from '../log/TypeLogs';
 
 // Classe para definir e gerenciar middlewares da aplicação
@@ -6,16 +8,28 @@ class Middlewares {
 
     // Instância do logger para registrar mensagens e erros
     private logger: TypeLogs;
+    private limiter: ReturnType<typeof rateLimit>;
 
     // Construtor da classe, inicializa o logger
     constructor() {
         this.logger = new TypeLogs(); // Inicializa o logger
+        this.limiter = rateLimit({
+            windowMs: 15 * 1000, // 30 segundos
+            max: 10, // Limite de 10 requisições por 15 segundos
+            message: 'Too many requests from this IP, please try again later',
+            standardHeaders: true, // Retorna as informações do rate limit nos headers `RateLimit-*`
+            legacyHeaders: false // Desativa os headers `X-RateLimit-*`
+        });
+    }
+
+    public requestLimiter() {
+        return this.limiter;
     }
 
     // Configura as opções de CORS (Cross-Origin Resource Sharing)
     public corsOptions(): object {
         return {
-            origin: '*', // Permitir somente esta origem específica
+            origin: process.env.FRONT_END_HOST, // Permitir somente esta origem específica
             methods: ['GET', 'POST', 'PUT', 'DELETE'], // Permitir esses métodos HTTP
             allowedHeaders: ['Content-Type', 'Authorization'], // Cabeçalhos permitidos
             exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'], // Cabeçalhos que podem ser expostos ao cliente
@@ -23,7 +37,7 @@ class Middlewares {
             maxAge: 84600, // Tempo de cache do preflight
             preflightContinue: false, // Não continuar com a verificação do preflight
             optionsSuccessStatus: 204 // Código de sucesso para preflight
-          }
+        };
     }
 
     // Middleware para lidar com erros de JSON (por exemplo, erros de sintaxe)
@@ -54,9 +68,6 @@ class Middlewares {
         
         next(); // Passa para o próximo middleware se o cabeçalho estiver correto
     }
-
-
-
 }
 
 export default Middlewares;

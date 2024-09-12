@@ -8,13 +8,11 @@ import { Tables, comandsTables } from "../model/StockTables";
 class StockController extends ValidatorsStockController {
 
     // Propriedades privadas para o serviço de banco de dados e tabelas
-    private database: MySQLService;
     private tables: Tables;
 
     // Construtor da classe que inicializa o serviço de banco de dados e as tabelas
     constructor(logger: TypeLogs) {
         super(logger); // Chama o construtor da classe base para inicializar o logger
-        this.database = new MySQLService(); // Inicializa o serviço de banco de dados
         this.tables = comandsTables; // Configura as tabelas de comando
     }
 
@@ -25,7 +23,7 @@ class StockController extends ValidatorsStockController {
 
     // Retorna a instância de MySQLService
     private getDataBase(): MySQLService {
-        return this.database;
+        return new MySQLService();
     }
 
     // Gera a data atual no formato ISO (YYYY-MM-DD)
@@ -37,10 +35,11 @@ class StockController extends ValidatorsStockController {
     public async allItens(nameTable: keyof Tables): Promise<EstoqueFinanceiroMes[] | EstoqueFinanceiroTotal[]> {
         let sqlAll: string;
         let result: EstoqueFinanceiroMes[] | EstoqueFinanceiroTotal[];
+        const database: MySQLService = this.getDataBase();
 
         try {
             // Inicia uma transação no banco de dados
-            this.getDataBase().beginTransaction();
+            await database.beginTransaction(database.getClient());
 
             const table = this.getTables()[nameTable];
 
@@ -51,24 +50,26 @@ class StockController extends ValidatorsStockController {
 
             sqlAll = table.sqlAll; // Obtém o SQL para recuperar todos os itens da tabela
 
-            result = await this.getDataBase().query(sqlAll); // Executa a consulta SQL e armazena o resultado
-
-            await this.getDataBase().commit(); // Confirma a transação
+            result = await this.getDataBase().query(sqlAll, database.getClient()); // Executa a consulta SQL e armazena o resultado
 
             return result; // Retorna o resultado da consulta
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log
-            await this.getDataBase().rollback(); // Reverte a transação em caso de erro
+            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
             throw error; // Lança o erro para que possa ser tratado pela chamada da função
+        } finally {
+            await database.commit(database.getClient()); // Confirma a transação
+            await database.close(database.getClient()); // Fecha a conexão
         }
     }
 
     // Recupera o ID total para uma consulta com base no produto
     public async getTotalIdForQuery(nameTable: keyof Tables, product: string): Promise<number> {
-        const sqlAux = this.getTables()[nameTable].sqlAuxId;
+        const sqlAux = this.getTables()[nameTable].sqlAuxId!;
+        const database: MySQLService = this.getDataBase();
 
         try {
-            const result = await this.getDataBase().query(sqlAux, [product]); // Executa a consulta para recuperar o ID
+            const result = await this.getDataBase().query(sqlAux, database.getClient(), [product]); // Executa a consulta para recuperar o ID
             if (result.length > 0) {
                 return result[0].id; // Retorna o ID encontrado
             } else {
@@ -77,19 +78,23 @@ class StockController extends ValidatorsStockController {
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log
             throw error; // Lança o erro para que possa ser tratado pela chamada da função
+        } finally {
+            await database.commit(database.getClient()); // Confirma a transação
+            await database.close(database.getClient()); // Fecha a conexão
         }
     }
 
     // Adiciona um novo item à tabela especificada
     public async addItem(dataItens: EstoqueFinanceiroMes | EstoqueFinanceiroTotal, nameTable: keyof Tables): Promise<void> {
         let sqlInsert: string;
+        const database: MySQLService = this.getDataBase();
 
         // Valida os dados do item e define a data de modificação
         const dataItensValidated = this.validateDataAdd(dataItens) as EstoqueFinanceiroMes | EstoqueFinanceiroTotal;
         dataItensValidated.data_modificacao = this.generateLastModification();
 
         try {
-            await this.database.beginTransaction(); // Inicia uma transação no banco de dados
+            await database.beginTransaction(database.getClient()); // Inicia uma transação no banco de dados
 
             // Verifica se a tabela é 'estoquefinanceiro_mes' e processa a inserção
             if (this.getTables()[nameTable] === this.getTables().estoquefinanceiro_mes) {
@@ -98,82 +103,113 @@ class StockController extends ValidatorsStockController {
                 sqlInsert = this.getTables()[nameTable].sqlInsert;
 
                 const dataMes = dataItensValidated as EstoqueFinanceiroMes;
-                await this.getDataBase().query(sqlInsert, [
-                    idForeignKey, 
-                    dataMes.data_modificacao, 
-                    dataMes.produto,
-                    dataMes.movimento,
-                    dataMes.quantidade, 
-                    dataMes.destino_origem, 
-                    dataMes.responsavel, 
-                    dataMes.observacao
+                await this.getDataBase().query(sqlInsert, database.getClient(), [
+                    idForeignKey, dataMes.data_modificacao, 
+                    dataMes.produto, dataMes.movimento,
+                    dataMes.quantidade, dataMes.destino_origem, 
+                    dataMes.responsavel, dataMes.observacao
                 ]);
             } else {
                 sqlInsert = this.getTables()[nameTable].sqlInsert;
 
                 const dataTotal = dataItensValidated as EstoqueFinanceiroTotal;
-                await this.getDataBase().query(sqlInsert, [
-                    dataTotal.data_modificacao,
-                    dataTotal.produto,
-                    dataTotal.unidade, 
-                    dataTotal.vencimento, 
-                    dataTotal.entrada, 
-                    dataTotal.saida, 
-                    dataTotal.saldo, 
-                    dataTotal.setor
+                await this.getDataBase().query(sqlInsert, database.getClient(), [
+                    dataTotal.data_modificacao, dataTotal.produto,
+                    dataTotal.unidade, dataTotal.vencimento, 
+                    dataTotal.entrada, dataTotal.saida, 
+                    dataTotal.saldo, dataTotal.setor
                 ]);
             }
-            
-            await this.getDataBase().commit(); // Confirma a transação
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log
-            await this.getDataBase().rollback(); // Reverte a transação em caso de erro
+            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
             throw error; // Lança o erro para que possa ser tratado pela chamada da função
+        } finally {
+            await database.commit(database.getClient()); // Confirma a transação
+            await database.close(database.getClient()); // Fecha a conexão
         }
     }
 
     // Atualiza um item existente na tabela especificada
     public async updateItem(dataItens: EstoqueFinanceiroMes | EstoqueFinanceiroTotal, nameTable: keyof Tables, id: number): Promise<void> {
         let sqlUpdate: string;
+        const database: MySQLService = this.getDataBase();
 
         // Valida os dados do item e define a data de modificação
         const dataItensValidated = this.validateDataAdd(dataItens) as EstoqueFinanceiroMes | EstoqueFinanceiroTotal;
-        dataItensValidated.data_modificacao = this.generateLastModification();;
+        dataItensValidated.data_modificacao = this.generateLastModification();
     
         try {
-            await this.database.beginTransaction(); // Inicia uma transação no banco de dados
+            await database.beginTransaction(database.getClient()); // Inicia uma transação no banco de dados
 
-            await this.validateId(nameTable, id, this.getDataBase()); // Valida o ID para garantir que o item exista
+            await this.validateId(nameTable, id, database); // Valida o ID para garantir que o item exista
     
             if (this.getTables()[nameTable] === this.getTables().estoquefinanceiro_mes) {
                 sqlUpdate = this.getTables()[nameTable].sqlUpdate;
     
                 const dataMes = dataItensValidated as EstoqueFinanceiroMes;
-                await this.getDataBase().query(sqlUpdate, [dataMes, id]);
+                await database.query(sqlUpdate, database.getClient(), [dataMes, id]);
             } else {
                 sqlUpdate = this.getTables()[nameTable].sqlUpdate;
     
                 const dataTotal = dataItensValidated as EstoqueFinanceiroTotal;
-                await this.getDataBase().query(sqlUpdate, [dataTotal, id]);
+                await database.query(sqlUpdate, database.getClient(), [dataTotal, id]);
             }
-            
-            await this.getDataBase().commit(); // Confirma a transação
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log
-            await this.getDataBase().rollback(); // Reverte a transação em caso de erro
+            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
             throw error; // Lança o erro para que possa ser tratado pela chamada da função
+        } finally {
+            await database.commit(database.getClient()); // Confirma a transação
+            await database.close(database.getClient()); // Fecha a conexão
+        }
+    }
+
+    public async updateQuantityTotal(quantity: number, nameTable: keyof Tables, id: number, typeMoviment: string): Promise<void> {
+        let sqlUpdateTotalBalance: string;
+        const database: MySQLService = this.getDataBase();
+
+        if (isNaN(quantity)) {
+            throw new Error(`Invalid quantity: ${quantity}`);
+        }
+
+        try {
+            await database.beginTransaction(database.getClient()); // Inicia uma transação no banco de dados
+
+            await this.validateId("estoquefinanceiro_total", id, database); // Valida o ID para garantir que o item exista
+
+            if (this.getTables()[nameTable] === this.getTables().estoquefinanceiro_mes) {
+                if (typeMoviment === "ENTRADA") {
+                    sqlUpdateTotalBalance = this.getTables()[nameTable].sqlUpdateTotalBalanceEntrada!;
+                } else if (typeMoviment === "SAIDA") {
+                    sqlUpdateTotalBalance = this.getTables()[nameTable].sqlUpdateTotalBalanceSaida!;
+                } else {
+                    throw new Error(`Invalid typeMoviment: ${typeMoviment}`);
+                }
+
+                await database.query(sqlUpdateTotalBalance, database.getClient(), 
+                            [quantity, quantity, this.generateLastModification(), id]);
+            }
+        } catch (error) {
+            this.getLogger().error((error as Error).message); // Registra o erro no log
+            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
+            throw error; // Lança o erro para que possa ser tratado pela chamada da função
+        } finally {
+            await database.commit(database.getClient()); // Confirma a transação
+            await database.close(database.getClient()); // Fecha a conexão
         }
     }
 
     // Deleta um item da tabela especificada
     public async deleteItem(nameTable: keyof Tables, id: number): Promise<void> {
         let sqlDelete: string;
+        const database: MySQLService = this.getDataBase();
 
         try {
-            this.getDataBase().beginTransaction(); // Inicia uma transação no banco de dados
+            await database.beginTransaction(database.getClient()); // Inicia uma transação no banco de dados
 
             // Valida o ID para garantir que o item exista
-            await this.validateId(nameTable, id, this.getDataBase());
+            await this.validateId(nameTable, id, database);
 
             const table = this.getTables()[nameTable];
 
@@ -184,13 +220,14 @@ class StockController extends ValidatorsStockController {
 
             sqlDelete = table.sqlDelete; // Obtém o SQL para deletar o item
 
-            await this.getDataBase().query(sqlDelete, [id]); // Executa a consulta de deleção
-
-            await this.getDataBase().commit(); // Confirma a transação
+            await database.query(sqlDelete, database.getClient(), [id]); // Executa a consulta de deleção
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log
-            await this.getDataBase().rollback(); // Reverte a transação em caso de erro
+            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
             throw error; // Lança o erro para que possa ser tratado pela chamada da função
+        } finally {
+            await database.commit(database.getClient()); // Confirma a transação
+            await database.close(database.getClient()); // Fecha a conexão
         }
     }
 

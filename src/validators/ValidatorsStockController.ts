@@ -52,7 +52,7 @@ class ValidatorsStockController {
 
         sqlCheck = table.sqlCheck; // Obtém a SQL para verificar a existência do ID
 
-        const result = await database.query(sqlCheck, [id]); // Executa a consulta para verificar a existência do ID
+        const result = await database.query(sqlCheck, database.getClient(), [id]); // Executa a consulta para verificar a existência do ID
 
         // Verifica se o resultado contém o ID
         if (!result[0]) {

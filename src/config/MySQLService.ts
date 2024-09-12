@@ -23,13 +23,13 @@ class MySQLService {
         });
     }
 
-    protected getClient(): mysql.Pool {
+    public getClient(): mysql.Pool {
         return this.pool;
     }
 
-    public async query(sql: string, params: any[] = []): Promise<any> {
+    public async query(sql: string, pool: mysql.Pool, params: any[] = []): Promise<any> {
         return new Promise((resolve, reject) => {
-            this.pool.query(sql, params, (error, results, fields) => {
+            pool.query(sql, params, (error, results, fields) => {
                 if (error) {
                     return reject(new Error("Error executing query: " + error));
                 }
@@ -38,9 +38,9 @@ class MySQLService {
         });
     }
 
-    public async close(): Promise<void> {
+    public async close(pool: mysql.Pool): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.pool.end((error) => {
+            pool.end((error) => {
                 if (error) {
                     return reject(new Error("Error closing connection pool: " + error));
                 }
@@ -49,9 +49,9 @@ class MySQLService {
         });
     }
 
-    public async beginTransaction(): Promise<void> {
+    public async beginTransaction(pool: mysql.Pool): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.pool.getConnection((err, connection) => {
+            pool.getConnection((err, connection) => {
                 if (err) {
                     return reject(new Error("Error getting connection from pool: " + err));
                 }
@@ -66,9 +66,9 @@ class MySQLService {
         });
     }
 
-    public async rollback(): Promise<void> {
+    public async rollback(pool: mysql.Pool): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.pool.getConnection((err, connection) => {
+            pool.getConnection((err, connection) => {
                 if (err) {
                     return reject(new Error("Error getting connection from pool: " + err));
                 }
@@ -83,9 +83,9 @@ class MySQLService {
         });
     }
 
-    public async commit(): Promise<void> {
+    public async commit(pool: mysql.Pool): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.pool.getConnection((err, connection) => {
+            pool.getConnection((err, connection) => {
                 if (err) {
                     return reject(new Error("Error getting connection from pool: " + err));
                 }
