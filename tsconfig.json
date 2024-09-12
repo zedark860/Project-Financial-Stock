@@ -8,6 +8,6 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist"
   },
-  "include": ["src", "validators"],
+  "include": ["src", "src/validators"],
   "exclude": ["node_modules"]
 }

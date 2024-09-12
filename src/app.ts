@@ -21,15 +21,20 @@ class App {
   }
 
   private middlewareSetup(): void {
+    this.app.use(cors(this.getMiddlewares().corsOptions()));
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
-    // this.app.use(cors(this.getMiddlewares().corsOptions));
     this.app.use(this.getMiddlewares().jsonError.bind(this.getMiddlewares()));
     this.app.use(this.getMiddlewares().checkHeaders.bind(this.getMiddlewares()));
+    this.app.use(this.getMiddlewares().requestLimiter());
+    this.app.use((req, res, next) => {
+      console.log(`Request: ${req.method} ${req.url}`);
+      next();
+    });
   }
 
   private routes(): void {
-    this.app.use("/", stockRoutes);
+    this.app.use("/estoque", stockRoutes);
   }
 
   public start(): void {
