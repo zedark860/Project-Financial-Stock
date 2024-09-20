@@ -14,8 +14,8 @@ class Middlewares {
     constructor() {
         this.logger = new TypeLogs(); // Inicializa o logger
         this.limiter = rateLimit({
-            windowMs: 15 * 1000, // 30 segundos
-            max: 10, // Limite de 10 requisições por 15 segundos
+            windowMs: 10 * 1000, // 10 segundos
+            max: 8, // Limite de 8 requisições por 10 segundos
             message: 'Too many requests from this IP, please try again later',
             standardHeaders: true, // Retorna as informações do rate limit nos headers `RateLimit-*`
             legacyHeaders: false // Desativa os headers `X-RateLimit-*`

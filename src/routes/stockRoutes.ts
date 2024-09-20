@@ -1,5 +1,4 @@
 import express, { Request, Response } from 'express';
-import rateLimit from 'express-rate-limit';
 import TypeLogs from "../log/TypeLogs";
 import StockController from '../controller/StockController';
 import { comandsTables as tables } from '../model/StockTables'; // Importando as tabelas configuradas
@@ -96,25 +95,25 @@ router.delete('/delete/:nameTable/:idProduct', async (req: Request, res: Respons
     }
 });
 
-router.put('/update-quantity-total/:nameTable/:idProduct/:typeMoviment' , async (req: Request, res: Response) => {
-    const { nameTable, idProduct, typeMoviment } = req.params;
-    let userIP = req.ip === "::1" ? "127.0.0.1" : req.ip;
-    message = "Total balance update successful";
+// router.put('/update-quantity-total/:nameTable/:idProduct/:typeMoviment' , async (req: Request, res: Response) => {
+//     const { nameTable, idProduct, typeMoviment } = req.params;
+//     let userIP = req.ip === "::1" ? "127.0.0.1" : req.ip;
+//     message = "Total balance update successful";
 
-    try {
-        if (!isValidTable(nameTable)) {
-            throw new Error(`Invalid table name: ${nameTable}`);
-        }
+//     try {
+//         if (!isValidTable(nameTable)) {
+//             throw new Error(`Invalid table name: ${nameTable}`);
+//         }
 
-        await stockController.updateQuantityTotal(parseInt(req.body["quantity"], 10), nameTable, parseInt(idProduct, 10), typeMoviment);
+//         await stockController.updateQuantityTotal(parseInt(req.body["quantity"], 10), nameTable, parseInt(idProduct, 10), typeMoviment);
 
-        stockController.getLogger().warn(message, userIP);
+//         stockController.getLogger().warn(message, userIP);
 
-        res.status(201).json({ messageStatus: message });
-    } catch (error) {
-        stockController.getLogger().error((error as Error).message, userIP);
-        res.status(500).json({ error: (error as Error).message });
-    }
-});
+//         res.status(201).json({ messageStatus: message });
+//     } catch (error) {
+//         stockController.getLogger().error((error as Error).message, userIP);
+//         res.status(500).json({ error: (error as Error).message });
+//     }
+// });
 
 export default router;
