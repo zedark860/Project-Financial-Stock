@@ -1,5 +1,3 @@
-
-
 # 📊 Project-Financial-Stock
 
 **Project-Financial-Stock** é um sistema de gerenciamento de estoque financeiro desenvolvido para a empresa **WebCertificados**. O projeto foi construído utilizando **TypeScript** para garantir maior segurança no código e **React** para facilitar a construção da interface do usuário.
@@ -78,7 +76,7 @@ Este sistema foca no controle de estoque, com duas tabelas: **Tabela Total** e *
 
 ### Modal Editor Tabela Total
 
-![Modal Tabela Mensal](./docs/Modal_Editor_Tabela_Total.png)
+![Modal Tabela Mensal](./docs/images/Modal_Editor_Tabela_Total.png)
 
 ### Modal Editor Tabela Mensal
 
