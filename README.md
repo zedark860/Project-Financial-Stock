@@ -33,7 +33,7 @@ Este sistema foca no controle de estoque, com duas tabelas: **Tabela Total** e *
 
 1. Navegue até a seção **Tabela Total**.
 2. Clique no botão **Adicionar Item** na barra de navegação.
-3. Preencha o formulário com as informações do novo item (nome, quantidade, preço).
+3. Preencha o formulário com as informações do novo item (nome do produto, unidade, entrada, setor).
 4. Clique em **Salvar** para adicionar o item à tabela.
 
 ### 2. Atualizando Itens
