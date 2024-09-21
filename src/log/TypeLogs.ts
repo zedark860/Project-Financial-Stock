@@ -1,15 +1,12 @@
 import pino from "pino";
-import pinoPretty from "pino-pretty";
 import fs from "fs";
 import path from "path";
 import os from "os";
 
 class TypeLogs {
     private logger: pino.Logger;
-    private machineName: string;
 
     constructor() {
-        this.machineName = os.hostname(); 
         this.logger = pino({
             transport: {
                 target: "pino-pretty",
@@ -40,7 +37,7 @@ class TypeLogs {
     // Log para informações
     public info(message: unknown, ip?: string) {
         const logMessage = String(message);
-        this.logger.info({ ip: ip, machine: this.machineName }, logMessage);
+        this.logger.info({ ip: ip }, logMessage);
         this.saveLog("info", logMessage, ip);
     }
 
@@ -48,21 +45,21 @@ class TypeLogs {
     public error(message: unknown, ip?: string) {
         const logMessage = String(message);
         const stack = message instanceof Error ? message.stack : undefined;
-        this.logger.error({ ip: ip, machine: this.machineName, stack }, logMessage);
+        this.logger.error({ ip: ip, stack }, logMessage);
         this.saveLog("error", logMessage, ip, stack);
     }
 
     // Log para alertas
     public warn(message: unknown, ip?: string) {
         const logMessage = String(message);
-        this.logger.warn({ ip: ip, machine: this.machineName }, logMessage);
+        this.logger.warn({ ip: ip }, logMessage);
         this.saveLog("warn", logMessage, ip);
     }
 
     // Log para debug
     public debug(message: unknown, ip?: string) {
         const logMessage = String(message);
-        this.logger.debug({ ip: ip, machine: this.machineName }, logMessage);
+        this.logger.debug({ ip: ip }, logMessage);
         this.saveLog("debug", logMessage, ip);
     }
 }

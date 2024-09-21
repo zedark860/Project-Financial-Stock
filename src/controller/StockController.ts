@@ -3,6 +3,7 @@ import TypeLogs from "../log/TypeLogs";
 import ValidatorsStockController from "../validators/ValidatorsStockController";
 import { EstoqueFinanceiroMes, EstoqueFinanceiroTotal } from "../model/StockData";
 import { Tables, comandsTables } from "../model/StockTables";
+import { Pool } from "mysql";
 
 // Controlador de operações de estoque, estende a classe ValidatorsStockController
 class StockController extends ValidatorsStockController {
@@ -33,201 +34,185 @@ class StockController extends ValidatorsStockController {
 
     // Recupera todos os itens de uma tabela específica
     public async allItens(nameTable: keyof Tables): Promise<EstoqueFinanceiroMes[] | EstoqueFinanceiroTotal[]> {
-        let sqlAll: string;
-        let result: EstoqueFinanceiroMes[] | EstoqueFinanceiroTotal[];
         const database: MySQLService = this.getDataBase();
+        const client: Pool = database.getClient();
 
         try {
-            // Inicia uma transação no banco de dados
-            await database.beginTransaction(database.getClient());
-
+            await database.beginTransaction(client);
             const table = this.getTables()[nameTable];
-
-            // Verifica se a tabela existe
             if (!table) {
                 throw new Error("Table not found");
             }
 
-            sqlAll = table.sqlAll; // Obtém o SQL para recuperar todos os itens da tabela
-
-            result = await this.getDataBase().query(sqlAll, database.getClient()); // Executa a consulta SQL e armazena o resultado
-
+            const sqlAll: string = table.sqlAll; // Obtém o SQL para recuperar todos os itens da tabela
+            const result: EstoqueFinanceiroMes[] | EstoqueFinanceiroTotal[] = await this.getDataBase().query(sqlAll, client);
             return result; // Retorna o resultado da consulta
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log
-            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
+            await database.rollback(client); // Reverte a transação em caso de erro
             throw error; // Lança o erro para que possa ser tratado pela chamada da função
         } finally {
-            await database.commit(database.getClient()); // Confirma a transação
-            await database.close(database.getClient()); // Fecha a conexão
+            if (database && client) {
+                await database.commit(client);
+                await database.close(client);
+            }
         }
     }
 
     // Recupera o ID total para uma consulta com base no produto
-    public async getTotalIdForQuery(nameTable: keyof Tables, product: string): Promise<number> {
+    public async getTotalIdForQuery(nameTable: keyof Tables, product: string, database: MySQLService): Promise<number> {
         const sqlAux = this.getTables()[nameTable].sqlAuxId!;
-        const database: MySQLService = this.getDataBase();
+        const client = database.getClient();
 
-        try {
-            const result = await this.getDataBase().query(sqlAux, database.getClient(), [product]); // Executa a consulta para recuperar o ID
-            if (result.length > 0) {
-                return result[0].id; // Retorna o ID encontrado
-            } else {
-                throw new Error('Product not found'); // Lança um erro se o produto não for encontrado
-            }
-        } catch (error) {
-            this.getLogger().error((error as Error).message); // Registra o erro no log
-            throw error; // Lança o erro para que possa ser tratado pela chamada da função
-        } finally {
-            await database.commit(database.getClient()); // Confirma a transação
-            await database.close(database.getClient()); // Fecha a conexão
+        const result = await this.getDataBase().query(sqlAux, client, [product]); // Executa a consulta para recuperar o ID
+        if (result.length > 0) {
+            return result[0].id; // Retorna o ID encontrado
         }
+        throw new Error('Product not found'); // Lança um erro se o produto não for encontrado
     }
 
     // Adiciona um novo item à tabela especificada
     public async addItem(dataItens: EstoqueFinanceiroMes | EstoqueFinanceiroTotal, nameTable: keyof Tables): Promise<void> {
-        let sqlInsert: string;
+        const sqlInsert: string = this.getTables()[nameTable].sqlInsert;
         const database: MySQLService = this.getDataBase();
+        const client: Pool = database.getClient();
 
         // Valida os dados do item e define a data de modificação
         const dataItensValidated = this.validateDataAdd(dataItens) as EstoqueFinanceiroMes | EstoqueFinanceiroTotal;
         dataItensValidated.data_modificacao = this.generateLastModification();
 
         try {
-            await database.beginTransaction(database.getClient()); // Inicia uma transação no banco de dados
+            await database.beginTransaction(client);
 
-            // Verifica se a tabela é 'estoquefinanceiro_mes' e processa a inserção
-            if (this.getTables()[nameTable] === this.getTables().estoquefinanceiro_mes) {
-                const idForeignKey = await this.getTotalIdForQuery(nameTable, (dataItensValidated as EstoqueFinanceiroMes).produto);
-
-                sqlInsert = this.getTables()[nameTable].sqlInsert;
-
-                const dataMes = dataItensValidated as EstoqueFinanceiroMes;
-                await this.getDataBase().query(sqlInsert, database.getClient(), [
-                    idForeignKey, dataMes.data_modificacao, 
-                    dataMes.produto, dataMes.movimento,
-                    dataMes.quantidade, dataMes.destino_origem, 
-                    dataMes.responsavel, dataMes.observacao
-                ]);
-            } else {
-                sqlInsert = this.getTables()[nameTable].sqlInsert;
-
-                const dataTotal = dataItensValidated as EstoqueFinanceiroTotal;
-                await this.getDataBase().query(sqlInsert, database.getClient(), [
-                    dataTotal.data_modificacao, dataTotal.produto,
-                    dataTotal.unidade, dataTotal.vencimento, 
-                    dataTotal.entrada, dataTotal.saida, 
-                    dataTotal.saldo, dataTotal.setor
-                ]);
+            switch (nameTable) {
+                case 'estoquefinanceiro_mes':
+                    const idForeignKey = await this.getTotalIdForQuery(
+                        nameTable, (dataItensValidated as EstoqueFinanceiroMes).produto, database
+                    );
+                    const dataMes = dataItensValidated as EstoqueFinanceiroMes;
+                    await this.getDataBase().query(sqlInsert, client, [
+                        idForeignKey, dataMes.data_modificacao, dataMes.produto, dataMes.movimento,
+                        dataMes.quantidade, dataMes.destino_origem, dataMes.responsavel, dataMes.observacao
+                    ]);
+                    await this.updateQuantityTotal(
+                        dataMes.quantidade, nameTable, 
+                        idForeignKey, dataMes.movimento, database);
+                    break;
+                case 'estoquefinanceiro_total':
+                    const dataTotal = dataItensValidated as EstoqueFinanceiroTotal;
+                    await this.getDataBase().query(sqlInsert, client, [
+                        dataTotal.data_modificacao, dataTotal.produto, dataTotal.unidade, dataTotal.vencimento, 
+                        dataTotal.entrada, dataTotal.saida, dataTotal.saldo, dataTotal.setor
+                    ]);
+                    break;
+                default:
+                    throw new Error(`Invalid table: ${nameTable}`);
             }
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log
-            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
+            await database.rollback(client); // Reverte a transação em caso de erro
             throw error; // Lança o erro para que possa ser tratado pela chamada da função
         } finally {
-            await database.commit(database.getClient()); // Confirma a transação
-            await database.close(database.getClient()); // Fecha a conexão
+            if (database && client) {
+                await database.commit(client);
+                await database.close(client);
+            }
         }
     }
 
     // Atualiza um item existente na tabela especificada
     public async updateItem(dataItens: EstoqueFinanceiroMes | EstoqueFinanceiroTotal, nameTable: keyof Tables, id: number): Promise<void> {
-        let sqlUpdate: string;
+        const sqlUpdate: string = this.getTables()[nameTable].sqlUpdate;
         const database: MySQLService = this.getDataBase();
+        const client: Pool = database.getClient();
 
         // Valida os dados do item e define a data de modificação
         const dataItensValidated = this.validateDataAdd(dataItens) as EstoqueFinanceiroMes | EstoqueFinanceiroTotal;
         dataItensValidated.data_modificacao = this.generateLastModification();
     
         try {
-            await database.beginTransaction(database.getClient()); // Inicia uma transação no banco de dados
-
+            await database.beginTransaction(client); // Inicia uma transação no banco de dados
             await this.validateId(nameTable, id, database); // Valida o ID para garantir que o item exista
     
-            if (this.getTables()[nameTable] === this.getTables().estoquefinanceiro_mes) {
-                sqlUpdate = this.getTables()[nameTable].sqlUpdate;
-    
-                const dataMes = dataItensValidated as EstoqueFinanceiroMes;
-                await database.query(sqlUpdate, database.getClient(), [dataMes, id]);
-            } else {
-                sqlUpdate = this.getTables()[nameTable].sqlUpdate;
-    
-                const dataTotal = dataItensValidated as EstoqueFinanceiroTotal;
-                await database.query(sqlUpdate, database.getClient(), [dataTotal, id]);
+            switch (nameTable) {
+                case 'estoquefinanceiro_mes':
+                    const idForeignKey = await this.getTotalIdForQuery(nameTable, 
+                        (dataItensValidated as EstoqueFinanceiroMes).produto, database
+                    );
+                    const dataMes = dataItensValidated as EstoqueFinanceiroMes;
+                    await database.query(sqlUpdate, client, [dataMes, id]);
+                    await this.updateQuantityTotal(
+                        dataMes.quantidade, nameTable, 
+                        idForeignKey, dataMes.movimento, database);
+                    break;
+                case 'estoquefinanceiro_total':
+                    const dataTotal = dataItensValidated as EstoqueFinanceiroTotal;
+                    await database.query(sqlUpdate, client, [dataTotal, id]);
+                    break;
+                default:
+                    throw new Error(`Invalid table: ${nameTable}`);
             }
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log
-            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
+            await database.rollback(client); // Reverte a transação em caso de erro
             throw error; // Lança o erro para que possa ser tratado pela chamada da função
         } finally {
-            await database.commit(database.getClient()); // Confirma a transação
-            await database.close(database.getClient()); // Fecha a conexão
+            if (database && client) {
+                await database.commit(client);
+                await database.close(client);
+            }
         }
     }
 
-    public async updateQuantityTotal(quantity: number, nameTable: keyof Tables, id: number, typeMoviment: string): Promise<void> {
-        let sqlUpdateTotalBalance: string;
-        const database: MySQLService = this.getDataBase();
+    // Atualiza a quantidade de um item na tabela 'estoquefinanceiro_total'
+    public async updateQuantityTotal(quantity: number, nameTable: keyof Tables, id: number, typeMoviment: string, database: MySQLService): Promise<void> {
+        const client: Pool = database.getClient();
 
         if (isNaN(quantity)) {
             throw new Error(`Invalid quantity: ${quantity}`);
         }
 
-        try {
-            await database.beginTransaction(database.getClient()); // Inicia uma transação no banco de dados
-
-            await this.validateId("estoquefinanceiro_total", id, database); // Valida o ID para garantir que o item exista
-
-            if (this.getTables()[nameTable] === this.getTables().estoquefinanceiro_mes) {
-                if (typeMoviment === "ENTRADA") {
-                    sqlUpdateTotalBalance = this.getTables()[nameTable].sqlUpdateTotalBalanceEntrada!;
-                } else if (typeMoviment === "SAIDA") {
-                    sqlUpdateTotalBalance = this.getTables()[nameTable].sqlUpdateTotalBalanceSaida!;
-                } else {
-                    throw new Error(`Invalid typeMoviment: ${typeMoviment}`);
-                }
-
-                await database.query(sqlUpdateTotalBalance, database.getClient(), 
-                            [quantity, quantity, this.generateLastModification(), id]);
-            }
-        } catch (error) {
-            this.getLogger().error((error as Error).message); // Registra o erro no log
-            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
-            throw error; // Lança o erro para que possa ser tratado pela chamada da função
-        } finally {
-            await database.commit(database.getClient()); // Confirma a transação
-            await database.close(database.getClient()); // Fecha a conexão
+        const validMovements: Record<string, string | undefined> = {
+            ENTRADA: this.getTables()[nameTable]?.sqlUpdateTotalBalanceEntrada,
+            SAIDA: this.getTables()[nameTable]?.sqlUpdateTotalBalanceSaida
         }
+
+        const sqlUpdateTotalBalance = validMovements[typeMoviment];
+        if (!sqlUpdateTotalBalance) {
+            throw new Error(`Invalid typeMoviment: ${typeMoviment}`);
+        }
+
+        await database.beginTransaction(client); // Inicia uma transação no banco de dados
+        await this.validateId("estoquefinanceiro_total", id, database); // Valida o ID para garantir que o item exista
+        await database.query(sqlUpdateTotalBalance, client, 
+                    [quantity, quantity, this.generateLastModification(), id]);
     }
 
     // Deleta um item da tabela especificada
     public async deleteItem(nameTable: keyof Tables, id: number): Promise<void> {
-        let sqlDelete: string;
         const database: MySQLService = this.getDataBase();
+        const client: Pool = database.getClient();
 
         try {
-            await database.beginTransaction(database.getClient()); // Inicia uma transação no banco de dados
-
-            // Valida o ID para garantir que o item exista
+            await database.beginTransaction(client); // Inicia uma transação no banco de dados
             await this.validateId(nameTable, id, database);
 
             const table = this.getTables()[nameTable];
-
-            // Verifica se a tabela existe
             if (!table) {
                 throw new Error("Table not found");
             }
 
-            sqlDelete = table.sqlDelete; // Obtém o SQL para deletar o item
-
-            await database.query(sqlDelete, database.getClient(), [id]); // Executa a consulta de deleção
+            const sqlDelete: string = table.sqlDelete; // Obtém o SQL para deletar o item
+            await database.query(sqlDelete, client, [id]); // Executa a consulta de deleção
         } catch (error) {
             this.getLogger().error((error as Error).message); // Registra o erro no log
-            await database.rollback(database.getClient()); // Reverte a transação em caso de erro
+            await database.rollback(client); // Reverte a transação em caso de erro
             throw error; // Lança o erro para que possa ser tratado pela chamada da função
         } finally {
-            await database.commit(database.getClient()); // Confirma a transação
-            await database.close(database.getClient()); // Fecha a conexão
+            if (database && client) {
+                await database.commit(client);
+                await database.close(client);
+            }
         }
     }
 
