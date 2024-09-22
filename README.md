@@ -83,3 +83,9 @@ Este sistema foca no controle de estoque, com duas tabelas: **Tabela Total** e *
 ![Modal Tabela Mensal](./docs/images/Modal_Editor_Tabela_Mensal.png)
 
 ---
+
+## 👨‍💻 Créditos
+
+Este projeto foi desenvolvido por Italo (https://github.com/ItaloBM) e Davi https://github.com/zedark860 para a empresa **WebCertificados**, utilizando **TypeScript** e **React** com foco na segurança e eficiência do código.
+
+---
