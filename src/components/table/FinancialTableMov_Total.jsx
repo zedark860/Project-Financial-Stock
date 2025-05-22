@@ -65,7 +65,7 @@ function FinancialTableMov_Total({ searchTerm, filter }) {
 
   const handleSaveEdit = async (updatedItem) => {
     try {
-      await updateItem(updatedItem.id, updatedItem, 'estoquefinanceiro_total');
+      await updateItem(updatedItem, 'estoquefinanceiro_total', updatedItem.id);
       const updatedData = await allItemsTableTotal();
       setData(updatedData.all);
       closeEditModalTotal();
